@@ -12,3 +12,5 @@ const storage = multer.diskStorage({
 export const upload = multer({ 
   storage 
 });
+
+// Role of the middleware is to add the fields or key-value pairs in request object
