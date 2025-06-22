@@ -23,4 +23,15 @@ app.use(express.static("public"))
 // There are some ways, you can store the secure cookies in User's Browser and only server can read it or delete it
 app.use(cookieParser())
 
+// routes import
+import userRouter from './routes/user.route.js'
+
+// routes declaration
+app.use('/api/v1/users', userRouter);
+
+// It will look something like this - users will be used as prefix
+// app.use('/users', userRouter)
+// http://localhost:8000/users/register OR
+// http://localhost:8000/users/login
+
 export default app;

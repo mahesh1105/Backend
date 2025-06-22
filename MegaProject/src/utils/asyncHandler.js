@@ -2,8 +2,9 @@
 // const asyncHandler = () => {}
 
 // Promises - The asyncHandler is attempting to be a middleware wrapper function
+// Higher Order Function - Wrapper over the function to handle promises with try-catch if error encounters
 const asyncHandler = (requestHandler) => {
-  (req, res, next) => {
+  return (req, res, next) => {
     Promise
     .resolve(requestHandler(req, res, next))
     .catch((err) => next(err))
