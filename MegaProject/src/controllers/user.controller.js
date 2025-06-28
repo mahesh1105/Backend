@@ -4,6 +4,27 @@ import { User } from '../models/user.model.js'
 import uploadOnCloudinary from '../utils/cloudinary.js'
 import { ApiResponse } from '../utils/ApiResponse.js'
 
+// Function to generate the Access and Refresh Token
+const generateAccessAndRefreshTokens = async (userId) => {
+  try {
+    const user = await User.findById(userId);
+    const accessToken = user.generateAccessToken();
+    const refreshToken = user.generateRefreshToken();
+
+    user.refreshToken = refreshToken;
+    
+    // Save the user in DB and don't validate it
+    // Because while saving the user - password will kick in and if not provided will create the problem
+    // So In order to solve that issue don't validate the user while saving it to DB
+    await user.save({ validateBeforeSave: false });
+
+    return {accessToken, refreshToken};
+  } catch (error) {
+    throw new ApiError(500, "Something went wrong while generating refresh and access token")
+  }
+}
+
+// Function for user registration
 const registerUser = asyncHandler(async (req, res) => {
   // Get user data from the frontend
   const { username, email, fullname, password } = req.body;
@@ -75,7 +96,94 @@ const registerUser = asyncHandler(async (req, res) => {
   return res.status(201).json(new ApiResponse(200, createdUser, "User registration successful"))
 })
 
-export { registerUser }
+// Function for user login - user authentication
+const loginUser = asyncHandler(async (req, res) => {
+  // Get user data from the frontend
+  const { username, email, password } = req.body;
+
+  // Check if username or email is present - alternate (!(username || email))
+  if(!username && !email) {
+    throw new ApiError(400, "username or email is required");
+  }
+
+  // Fetch user details from DB
+  const user = await User.findOne({
+    $or: [{username}, {email}]
+  })
+
+  // Check whether user exists or not
+  if(!user) {
+    throw new ApiError(404, "User does not exist")
+  }
+
+  // Verify the Password by comparing it through DB password - Password in DB is in encrypted format
+  const isPasswordValid = await user.isPasswordCorrect(password);
+
+  // Check whether password is same or not
+  if(!isPasswordValid) {
+    throw new ApiError(401, "Invalid user credentials")
+  }
+
+  // Generate Access and Refresh Token
+  const {accessToken, refreshToken} = await generateAccessAndRefreshTokens(user._id);
+
+  // Get the user reference after saving refresh token in DB - Optional
+  // Here we are saying to exclude the password and refreshToken field
+  const loggedInUser = await User.findById(user._id).select("-password -refreshToken")
+
+  // By doing so - cookies can't be modified from frontend side - Only server can modify or delete it
+  // It will be read-only in frontend side
+  const options = {
+    httpOnly: true,
+    secure: true
+  }
+
+  // Send the Cookies and return the response
+  return res
+  .status(200)
+  .cookie("accessToken", accessToken, options)
+  .cookie("refreshToken", refreshToken, options)
+  .json(
+    new ApiResponse(
+      200,
+      {
+        user: loggedInUser,
+        accessToken,
+        refreshToken
+      },
+      "User logged In Successfully"
+    )
+  );
+})
+
+// Function for user logout
+const logoutUser = asyncHandler(async (req, res) => {
+  // Delete the refresh token from DB
+  await User.findByIdAndUpdate(
+    req.user._id,
+    {
+      $set: {
+        refreshToken: undefined
+      }
+    },
+    {
+      new: true
+    }
+  );
+
+  const options = {
+    httpOnly: true,
+    secure: true
+  }
+
+  return res
+  .status(200)
+  .clearCookie("accessToken", options)
+  .clearCookie("refreshToken", options)
+  .json(new ApiResponse(200, {}, "User logged Out"))
+})
+
+export { registerUser, loginUser, logoutUser }
 
 /*
   Steps for user registration:
@@ -89,4 +197,39 @@ export { registerUser }
   7. remove password and refresh token field from response
   8. check for user creation
   9. return response if successful else error
+
+  Steps for user login:
+  ---------------------
+  1. Get User details from frontend - req.body
+  2. username or email
+  3. Find the user
+  4. Check for password
+  5. Access and Refresh Token generation
+  6. Send Cookies
+  7. Return response if successful, else error
+
+  Note:
+  -----
+  Whenever we use 'User' - this is the one which is exported by us after creating the schema
+  This will use mongoose methods, like - findOne, findById, etc.
+
+  If you want to use the methods created by you for user models then you have to use 'user'
+  which is the reference of the user after user has found in DB by using the findOne or findById methods
+
+  Note:
+  -----
+  - We will provide access token to the user in order to validate the login request
+  - We will store the refresh token in database so that we don't have to ask the password from user everytime
+
+  Steps for user logout:
+  ----------------------
+  1. Clear the cookies
+  2. Clear the refresh token from DB
+
+  Middleware - Jane se pehle milke jana
+  DataBase is in another continent - takes times while doing operation with it
+
+  Access Token - Short lived, not stored in db
+  Refresh Token - Long lived, stored in db
+  When access token expires, the frontend sends the refresh token to the backend to validate user (login), once again.
 */

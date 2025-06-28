@@ -11,7 +11,12 @@ app.use(cors({
     credentials: true,
 }))
 
-// Configurations for Max Limit on JSON File Size
+// app.use(..) is a middleware in express
+// app.json(..) is a built-in middleware in express
+// It parses the raw JSON body of incoming requests and adds it to req.body.
+// Without this, req.body will be undefined when you send JSON data from Postman, React frontend, etc.
+// { limit: "16kb" } sets the maximum allowed size for the incoming JSON body.
+// If a request has a body larger than 16kb, Express will reject it and throw a PayloadTooLargeError (HTTP status code 413).
 app.use(express.json({limit: "16kb"}))
 
 app.use(express.urlencoded({extended: true, limit: "16kb"}))
@@ -21,6 +26,8 @@ app.use(express.static("public"))
 
 // Configurations for accessing OR setting the cookies of User Browser via Server, Basically performing the CRUD operations
 // There are some ways, you can store the secure cookies in User's Browser and only server can read it or delete it
+// Using this we can send cookies to frontend which may includes user details, refresh and access token and
+// request object will have access to cookies by using this
 app.use(cookieParser())
 
 // routes import
