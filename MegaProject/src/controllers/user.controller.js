@@ -202,10 +202,10 @@ const refreshAcesssToken = asyncHandler(async (req, res) => {
   
     // Verify the incoming refresh token or decode the token in order to get the user info
     const decodedToken = jwt.verify(incomingRefreshToken, process.env.REFRESH_TOKEN_SECRET);
-    console.log(decodedToken);
   
     // Find the user in DB by its id from decoded token
-    const user = await User.findOne(decodedToken?._id);
+    // findOne() expects an object as the filter
+    const user = await User.findOne({ _id: decodedToken?._id });
   
     // Check whether the user is present in DB or not
     if(!user) {
@@ -327,4 +327,14 @@ export { registerUser, loginUser, logoutUser, refreshAcesssToken }
   the above tokens (access and refresh) will be sent to the frontend via secure cookies and refresh token will also be stored in DB
   because if access token expires then with the help of refresh token present in cookies, we will verify whether the refresh token is same in DB or not
   that helps in user authentication without entering password again, that's why we decode the token using jwt.verify() method to get teh user id
+
+  decoded token will look something like this - 
+  {
+    _id: '68605eb4a3efc7161553698e',
+    email: 'nsdjfukwjdf@gmail.com',
+    username: 'jdheuid',
+    fullname: 'Alex',
+    iat: 1751175232,
+    exp: 1752039232
+  }
 */
