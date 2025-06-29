@@ -3,11 +3,15 @@ import { ApiError } from '../utils/ApiError.js'
 import { User } from '../models/user.model.js'
 import uploadOnCloudinary from '../utils/cloudinary.js'
 import { ApiResponse } from '../utils/ApiResponse.js'
+import jwt from 'jsonwebtoken'
 
 // Function to generate the Access and Refresh Token
 const generateAccessAndRefreshTokens = async (userId) => {
   try {
+    // Get the user by its id
     const user = await User.findById(userId);
+
+    // The below methods belongs to user so it can be accessible from 'user' only not by mongoose 'User'
     const accessToken = user.generateAccessToken();
     const refreshToken = user.generateRefreshToken();
 
@@ -171,11 +175,13 @@ const logoutUser = asyncHandler(async (req, res) => {
     }
   );
 
+  // Set the options which is sent via cookies
   const options = {
     httpOnly: true,
     secure: true
   }
 
+  // Clear the cookies and send the json response
   return res
   .status(200)
   .clearCookie("accessToken", options)
@@ -183,7 +189,65 @@ const logoutUser = asyncHandler(async (req, res) => {
   .json(new ApiResponse(200, {}, "User logged Out"))
 })
 
-export { registerUser, loginUser, logoutUser }
+// Function to refresh the access token
+const refreshAcesssToken = asyncHandler(async (req, res) => {
+  try {
+    // Get the refresh token via cookies or via req.body if the request coming from mobile
+    const incomingRefreshToken = req.cookies.refreshToken || req.body.refreshToken;
+  
+    // Check whether the incoming refresh token exists or not
+    if(!incomingRefreshToken) {
+      throw new ApiError(401, "Unauthorized request");
+    }
+  
+    // Verify the incoming refresh token or decode the token in order to get the user info
+    const decodedToken = jwt.verify(incomingRefreshToken, process.env.REFRESH_TOKEN_SECRET);
+    console.log(decodedToken);
+  
+    // Find the user in DB by its id from decoded token
+    const user = await User.findOne(decodedToken?._id);
+  
+    // Check whether the user is present in DB or not
+    if(!user) {
+      throw new ApiError(401, "Invalid refresh token");
+    }
+  
+    // Check whether the incoming refresh token is same for the user in DB or not
+    if(incomingRefreshToken !== user.refreshToken) {
+      throw new ApiError(401, "Refresh token is expired or used")
+    }
+  
+    // Generate the new Access and Refresh Token
+    const {accessToken, refreshToken} = await generateAccessAndRefreshTokens(user._id);
+  
+    // Set the options which is sent via cookies
+    const options = {
+      httpOnly: true,
+      secure: true
+    }
+  
+    // Send the cookies and the json response to frontend
+    return res
+    .status(200)
+    .cookie("accessToken", accessToken, options)
+    .cookie("refreshToken", refreshToken, options)
+    .json(
+      new ApiResponse(
+        200,
+        {
+          user,
+          accessToken,
+          refreshToken
+        },
+        "Token refreshed sucessfully"
+      )
+    );
+  } catch (error) {
+    throw new ApiError(401, error?.message || "Invalid refresh token");
+  }
+})
+
+export { registerUser, loginUser, logoutUser, refreshAcesssToken }
 
 /*
   Steps for user registration:
@@ -232,4 +296,35 @@ export { registerUser, loginUser, logoutUser }
   Access Token - Short lived, not stored in db
   Refresh Token - Long lived, stored in db
   When access token expires, the frontend sends the refresh token to the backend to validate user (login), once again.
+
+  ==> Super Note:
+  ---------------
+  While creating the JWT, it will take the payload (data to be included in the token), a secret key and expiry time and
+  based on all these things, it will generate the json web token
+
+  This is how token can be generated - 
+  ==> Generate the JWT
+  jwt.sign(
+    // Define the payload (data to be included in the token)
+    {
+      _id: this._id,
+      email: this.email,
+      username: this.username,
+      fullname: this.fullname,
+    },
+    // Define the Secret Key
+    process.env.ACCESS_TOKEN_SECRET,
+    // EXPIRY TIME
+    {
+      expiresIn: process.env.ACCESS_TOKEN_EXPIRY
+    }
+  )
+  
+  tokens will look something like this - 
+  Access Token:  eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJfaWQiOiI2ODYwNWViNGEzZWZjNzE2MTU1MzY5OGUiLCJlbWFpbCI6Im5zZGpmdWt3amRmQGdtYWlsLmNvbSIsInVzZXJuYW1lIjoiamRoZXVpZCIsImZ1bGxuYW1lIjoiQWxleCIsImlhdCI6MTc1MTE3NTIzMiwiZXhwIjoxNzUxMjYxNjMyfQ.Ad_vVOVOb1fIUipTiEtjYLRR0F5aWUj1xAWbRoFbEsc
+  Refresh Token: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJfaWQiOiI2ODYwNWViNGEzZWZjNzE2MTU1MzY5OGUiLCJlbWFpbCI6Im5zZGpmdWt3amRmQGdtYWlsLmNvbSIsInVzZXJuYW1lIjoiamRoZXVpZCIsImZ1bGxuYW1lIjoiQWxleCIsImlhdCI6MTc1MTE3NTIzMiwiZXhwIjoxNzUyMDM5MjMyfQ.ewOW4mq3tdk8XZq_mvrdNzBuU69Fw8jbfqkKdnsxJ68
+
+  the above tokens (access and refresh) will be sent to the frontend via secure cookies and refresh token will also be stored in DB
+  because if access token expires then with the help of refresh token present in cookies, we will verify whether the refresh token is same in DB or not
+  that helps in user authentication without entering password again, that's why we decode the token using jwt.verify() method to get teh user id
 */
