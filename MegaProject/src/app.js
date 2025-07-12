@@ -12,7 +12,7 @@ app.use(cors({
 }))
 
 // app.use(..) is a middleware in express
-// app.json(..) is a built-in middleware in express
+// express.json(..) is a built-in middleware in express
 // It parses the raw JSON body of incoming requests and adds it to req.body.
 // Without this, req.body will be undefined when you send JSON data from Postman, React frontend, etc.
 // { limit: "16kb" } sets the maximum allowed size for the incoming JSON body.
@@ -32,9 +32,25 @@ app.use(cookieParser())
 
 // routes import
 import userRouter from './routes/user.route.js'
+import healthcheckRouter from "./routes/healthcheck.routes.js"
+import tweetRouter from "./routes/tweet.routes.js"
+import subscriptionRouter from "./routes/subscription.routes.js"
+import videoRouter from "./routes/video.routes.js"
+import commentRouter from "./routes/comment.routes.js"
+import likeRouter from "./routes/like.routes.js"
+import playlistRouter from "./routes/playlist.routes.js"
+import dashboardRouter from "./routes/dashboard.routes.js"
 
 // routes declaration
 app.use('/api/v1/users', userRouter);
+app.use("/api/v1/healthcheck", healthcheckRouter);
+app.use("/api/v1/tweets", tweetRouter);
+app.use("/api/v1/subscriptions", subscriptionRouter);
+app.use("/api/v1/videos", videoRouter);
+app.use("/api/v1/comments", commentRouter);
+app.use("/api/v1/likes", likeRouter);
+app.use("/api/v1/playlist", playlistRouter);
+app.use("/api/v1/dashboard", dashboardRouter);
 
 // It will look something like this - users will be used as prefix
 // app.use('/users', userRouter)
@@ -42,3 +58,20 @@ app.use('/api/v1/users', userRouter);
 // http://localhost:8000/users/login
 
 export default app;
+
+/*
+  Aggregation Pipeline:
+  =====================
+  
+  # Pipeline Concept:
+  -------------------
+  The aggregation pipeline processes documents through multiple stages, where each stage transforms the documents.
+
+  Basic Pipeline Structure
+  ------------------------
+  db.collection.aggregate([
+    { $stage1: { ... } },
+    { $stage2: { ... } },
+    { $stage3: { ... } }
+  ]);
+*/

@@ -1,16 +1,17 @@
 import {v2 as cloudinary} from 'cloudinary' // Service for uploading files or documents (images, videos and others)
 import fs from "fs" // file system for node js --> By Default there with NodeJS Installation - For File Operations
 
-// Set the configurations for cloudinary
-cloudinary.config({
-  cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
-  api_key: process.env.CLOUDINARY_API_KEY,
-  api_secret: process.env.CLOUDINARY_API_SECRET
-})
-
 const uploadOnCloudinary = async (localFilePath) => {
   try {
     if(!localFilePath) return null;
+
+    // Set the configurations for cloudinary to ensure env vars are available
+    // If set outside the functions then env variables are undefined at that point
+    cloudinary.config({
+      cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+      api_key: process.env.CLOUDINARY_API_KEY,
+      api_secret: process.env.CLOUDINARY_API_SECRET
+    });
 
     // Upload the file on Cloudinary - use await as the below operation will take time
     const response = await cloudinary.uploader.upload(localFilePath, {
@@ -24,7 +25,8 @@ const uploadOnCloudinary = async (localFilePath) => {
     fs.unlinkSync(localFilePath);
     return response;
   } catch (error) {
-    fs.unlink(localFilePath); // remove locally saved temporary file as the upload operation got failed
+    // Remove locally saved temporary file as the upload operation got failed
+    fs.unlinkSync(localFilePath);
     return null;
   }
 }
