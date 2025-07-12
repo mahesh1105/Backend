@@ -9,13 +9,14 @@ const router = Router();
 
 // Added a middleware for multer file upload before user registration
 router.route('/register').post(
+  // adding multer middleware for file uploads
   upload.fields([
     {
-      name: "avatar",
+      name: "avatar",        // This creates req.files.avatar
       maxCount: 1
     },
     {
-      name: "coverImage",
+      name: "coverImage",    // This creates req.files.coverImage
       maxCount: 1
     }
   ]),
