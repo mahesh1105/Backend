@@ -57,10 +57,6 @@ const getVideoComments = asyncHandler(async (req, res) => {
   // Ex- {{server}}/comments/6872c7f295caae2eab4013bf?page=1&limit=5
   const { page = 1, limit = 10 } = req.query;
 
-  // After parsing the value from the URL, it will be the string
-  // Below part will convert it to the Integer
-  const commentsLimit = parseInt(limit);
-
   // Check if the video id is valid
   if(!isValidObjectId(videoId)) {
     throw new ApiError(400, "Invalid Video Id format");
@@ -77,6 +73,20 @@ const getVideoComments = asyncHandler(async (req, res) => {
   }
 
   // Find all the comments for the video id uisng aggregate pipeline
+  // const allComments = await Comment.aggregate([
+  //   // Stage 1: Match the video id
+  //   {
+  //     $match: {
+  //       video: new mongoose.Types.ObjectId(videoId)
+  //     }
+  //   },
+  //   // Stage 2: set the limit on the comment
+  //   {
+  //     $limit: parseInt(limit)
+  //   }
+  // ]);
+
+  // Use advanced aggregation pipeline
   const allComments = await Comment.aggregate([
     // Stage 1: Match the video id
     {
@@ -84,9 +94,51 @@ const getVideoComments = asyncHandler(async (req, res) => {
         video: new mongoose.Types.ObjectId(videoId)
       }
     },
-    // Stage 2: set the limit on the comment
+    // Stage 2: Lookup to join the Documents
     {
-      $limit: commentsLimit
+      $lookup: {
+        from: "users",
+        localField: "owner",
+        foreignField: "_id",
+        as: "createdBy",
+        pipeline: [
+          // Nested aggregation piepline - Project to reshape the document
+          {
+            $project: {
+              username: 1,
+              fullname: 1,
+              avatar: 1,
+            }
+          }
+        ]
+      }
+    },
+    // Stage 3: Flatten the array for nested document and add the field to teh document
+    {
+      $addFields: {
+        createdBy: {
+          $first: "$createdBy"
+        }
+      }
+    },
+    // Stage 4: If multiple nested document will be there then it will deconstruct the array
+    // {
+    //   $unwind: "$createdBy"
+    // },
+    // Stage 5: Project to reshape the final document
+    {
+      $project: {
+        content: 1,
+        createdBy: 1
+      }
+    },
+    // Stage 6: Use Pagination to show page wise comment
+    {
+      $skip: (page - 1) * parseInt(limit)
+    },
+    // Stage 7: Use Limit to show limited comment per page
+    {
+      $limit: parseInt(limit)
     }
   ]);
 
