@@ -1,6 +1,7 @@
 import {v2 as cloudinary} from 'cloudinary' // Service for uploading files or documents (images, videos and others)
 import fs from "fs" // file system for node js --> By Default there with NodeJS Installation - For File Operations
 
+// Upload the video on cloudinary
 const uploadOnCloudinary = async (localFilePath) => {
   try {
     if(!localFilePath) return null;
@@ -31,4 +32,18 @@ const uploadOnCloudinary = async (localFilePath) => {
   }
 }
 
-export default uploadOnCloudinary;
+// Delete the video from cloudinary
+const deleteOnCloudinary = async (cloudinaryFilePath) => {
+  try {
+    if(!cloudinaryFilePath) return null;
+
+    const fileName = cloudinaryFilePath.split('/').pop().split('.')[0];
+    const response = await cloudinary.uploader.destroy(fileName);
+    return response;
+  } catch (error) {
+    console.log("Error while deleting the video from cloudinary: ", error.message);
+    return null;
+  }
+}
+
+export { uploadOnCloudinary, deleteOnCloudinary };
