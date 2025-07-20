@@ -1,5 +1,8 @@
 import mongoose, { isValidObjectId } from "mongoose"
 import { Like } from "../models/like.model.js"
+import { Video } from "../models/video.model.js"
+import { Comment } from "../models/comment.model.js"
+import { Tweet } from "../models/tweet.model.js"
 import { ApiError } from "../utils/ApiError.js"
 import { ApiResponse } from "../utils/ApiResponse.js"
 import { asyncHandler } from "../utils/asyncHandler.js"
@@ -9,14 +12,14 @@ const toggleVideoLike = asyncHandler(async (req, res) => {
   // Get the videoId from the params - website link
   const { videoId } = req.params;
 
-  console.log(videoId);
-  console.log(typeof videoId); // string
+  // console.log(videoId);
+  // console.log(typeof videoId); // string
 
   // Fetch the userId from the req.user object
   const userId = req.user?._id;
 
-  console.log(userId);
-  console.log(typeof userId); // object
+  // console.log(userId);
+  // console.log(typeof userId); // object
 
   // Check if the videoId is valid or not
   /*
@@ -30,6 +33,14 @@ const toggleVideoLike = asyncHandler(async (req, res) => {
   if(!isValidObjectId(videoId)) {
     throw new ApiError(400, "Invalid Video ID");
   }
+
+  // Check if video with video id really exists or not
+  const video = await Video.findById(videoId);
+
+  // Check if any such video exists
+  if(!video) {
+    throw new ApiError(402, "You cannot like the video - No such video exists - Invalid video id");
+  }
   
   // Find the videoId and userId in DB - if exists it means that
   // user with userId has liked the video with that videoId
@@ -39,8 +50,8 @@ const toggleVideoLike = asyncHandler(async (req, res) => {
     likedBy: userId
   });
 
-  console.log(existingLike);
-  console.log(typeof existingLike); // object
+  // console.log(existingLike);
+  // console.log(typeof existingLike); // object
 
   // Check if the video is already liked by the user
   if(existingLike) {
@@ -86,6 +97,14 @@ const toggleCommentLike = asyncHandler(async (req, res) => {
   // Check if the commentId is valid or not
   if(!isValidObjectId(commentId)) {
     throw new ApiError(400, "Invalid Comment ID")
+  }
+
+  // Check if video with video id really exists or not
+  const comment = await Comment.findById(commentId);
+
+  // Check if any such video exists
+  if(!comment) {
+    throw new ApiError(402, "You cannot like the comment - No such comment exists - Invalid comment id");
   }
 
   // Find the occurence of document (already liked comment)
@@ -137,6 +156,14 @@ const toggleTweetLike = asyncHandler(async (req, res) => {
   // Check if the tweetId is valid or not
   if(!isValidObjectId(tweetId)) {
     throw new ApiError(400, "Invalid Tweet Id");
+  }
+
+  // Check if video with video id really exists or not
+  const tweet = await Tweet.findById(tweetId);
+
+  // Check if any such video exists
+  if(!tweet) {
+    throw new ApiError(402, "You cannot like the tweet - No such tweet exists - Invalid tweet id");
   }
 
   // Find the occurence of the document if exists within the collection
