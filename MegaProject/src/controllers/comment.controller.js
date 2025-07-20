@@ -113,7 +113,7 @@ const getVideoComments = asyncHandler(async (req, res) => {
         ]
       }
     },
-    // Stage 3: Flatten the array for nested document and add the field to teh document
+    // Stage 3: Flatten the array for nested document and add the field to the document
     {
       $addFields: {
         createdBy: {
