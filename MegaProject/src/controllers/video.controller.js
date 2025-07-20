@@ -8,7 +8,97 @@ import { uploadOnCloudinary } from "../utils/cloudinary.js"
 
 // Controller to get all the videos based on query, sort and pagination
 const getAllVideos = asyncHandler(async (req, res) => {
+  // Fetch all the required info from the URL path
   const { page = 1, limit = 10, query, sortBy, sortType, userId } = req.query;
+
+  // Check if user id is valid or not
+  const user = await User.findById({
+    _id: userId
+  });
+
+  // Check if user exists or not
+  if(!user) {
+    throw new ApiError(400, "Invalid User Id");
+  }
+
+  // Fetch all the videos based on the query, sort and pagination
+  const allVideos = await Video.aggregate([
+    // Stage 1: Find the videos based on the query - find regex query either in title or description
+    {
+      $match: {
+        $or: [
+          {
+            title: { $regex: query, $options: "i" },
+          },
+          {
+            description: { $regex: query, $options: "i" },
+          },
+        ],
+      },
+    },
+    // Stage 2: Lookup to join the documents and nested pipeline to perform operation on nested document
+    {
+      $lookup: {
+        from: "users",
+        localField: "owner",
+        foreignField: "_id",
+        as: "createdBy",
+        pipeline: [
+          {
+            $project: {
+              name: 1,
+              username: 1,
+              email: 1
+            }
+          }
+        ]
+      }
+    },
+    // Stage 3: Flatten the array - so that it will be an object insted of an array of size 1
+    {
+      $unwind: "$createdBy",
+    },
+    // Stage 4: Project to reshape the output document
+    {
+      $project: {
+        videoFile: 1,
+        thumbnail: 1,
+        title: 1,
+        description: 1,
+        duration: 1,
+        views: 1,
+        createdBy: 1
+      }
+    },
+    // Stage 5: Sort the video based on the input field and specific type mentioned
+    {
+      $sort: {
+        [sortBy]: sortType === "asc" ? 1 : -1
+      },
+    },
+    // Stage 6: Implement pagination to show videos page wise
+    {
+      $skip: (parseInt(page)-1)*limit
+    },
+    // Stage 7: Limit the videos per page
+    {
+      $limit: parseInt(limit)
+    }
+  ]);
+
+  // Check if videos exists or not
+  if(!allVideos) {
+    throw new ApiError(404, "Videos not found");
+  }
+
+  // Send the response
+  return res
+  .status(200)
+  .json(new ApiResponse(
+    200,
+    allVideos,
+    "All the videos has been fetched successfully"
+  ))
 })
 
 // Controller to publish the video
@@ -61,7 +151,7 @@ const publishAVideo = asyncHandler(async (req, res) => {
     title,
     description,
     duration: video.duration,
-    owner: userId
+    owner: new mongoose.Types.ObjectId(userId)
   });
 
   // Check if video document sucessfully stored in DB
